@@ -3,12 +3,12 @@ close all;
 clc;
 
 %%Paramètres
-fe=1e4;                         %%fréquence d'échantillonage
+fe=4*10^6;                         %%fréquence d'échantillonage
 Te=1/fe;
 M=4;                            %%Nbre de symboles
 n_b=log2(M);                    %%Nbre de bits/symbole
-Ds=1e3;                         %%Débit symbole
-Ts= 1/Ds;                       %%Temps symbole
+Ts= 4*Te;                       %%Temps symbole
+Ds=1/Ts;                         %%Débit symbole
 Nfft=512 ;                          %%points pour TF
 Fse=Ts/Te;                          %%Facteur de sur-échantillonage (nombre d'échantillons sur une période Ts)
 Ns=5000;                            %%Nombre de symboles par paquet
@@ -36,13 +36,11 @@ for j=1:2:Ns*n_b             % Association bits->symboles (modulation QPSK)
     end
 end
 
-Ss_up=zeros(1,Ns*n_b*5);            %Sur-échantillonne le signal Ss
+Ss_up=zeros(1,Ns*n_b*Fse/2);            %Sur-échantillonne le signal Ss
 for i=1:Ns*n_b/2
-    Ss_up((i-1)*10+1)=Ss(i);
+    Ss_up((i-1)*Fse+1)=Ss(i);
 end
 
-G=ones(1,Fse);                       %Filtre de mise en forme porte
-G2=rcosfir(0.5,4,Fse,1,'sqrt');    %Filtre de mise en forme en racine de cosinus sur-élevé
+G=rcosdesign(0.35,8,Fse,'sqrt');    %Filtre de mise en forme en racine de cosinus sur-élevé
 
-Sl=conv(G,Ss_up);           %Sortie du filtre de mise en forme porte
-Sl2=conv(G2,Ss_up);         %Sortie du filtre mise en forme cos sur-élevé
+Sl=conv(G,Ss_up);         %Sortie du filtre mise en forme cos sur-élevé
