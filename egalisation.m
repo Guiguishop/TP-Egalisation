@@ -5,7 +5,8 @@ clc ;
 %% Initialisation des paramètres
 fech=4*10^6;
 Te=1/fech;
-Ts=4*Te;
+Ds= 10^6;
+Ts=1/Ds;
 Fse=Ts/Te;
 
 M=4;
@@ -15,8 +16,6 @@ Ak=[(-1-1j)/sqrt(2); (-1+1j)/sqrt(2); (1-1j)/sqrt(2); (1+1j)/sqrt(2)];
 Ns=5000;
 Nc=Ns*Fse;
 Nfft=512;
-
-sigma2 =2;
 
 %Choix du filtre
 G=rcosdesign(0.35,4,Fse,'sqrt');  %filtre de mise en forme
@@ -36,6 +35,11 @@ sigma2 = sigA2 * Eg ./ ( n_b * eb_n0 ) ; % Variance du bruit complexe en bande d
 TEB = zeros ( size ( eb_n0 ) ); % Tableau des TEB (résultats)
 Pb = qfunc ( sqrt (2* eb_n0 ) ) ; % Tableau des probabilités d’erreurs théoriques = 0.5*erfc(sqrt(eb_n0))
 
+for j = 1: length(eb_n0)
+    bit_error = 0;
+    bit_count = 0;
+    while bit_error < 100
+
 
 
 %% Emetteur %%
@@ -47,27 +51,33 @@ Pb = qfunc ( sqrt (2* eb_n0 ) ) ; % Tableau des probabilités d’erreurs théorique
 
     Ss2=upsample(Ss,Fse); %suréchantillonnage
     
-    Sl=conv2(G,Ss2); %dix échantillons = Ts en terme de temps   
+    Sl=conv2(G,Ss2); %dix échantillons = Ts en terme de temps
+    %figure,plot(abs(Sl(1:50))),title("Sl avant filtre")
 %% CANAL
     d=2;
     n=0:20;
-    H= sinc(n-12-d).*hann(21);
+    H= sinc(n-12-d).*hann(21)';
+    %fvtool(H)
     Sl2=conv2(H,Sl);
     
-    nl =(randn(size(Sl2)) + 1i*randn (size (Sl2))) ; %bruit blanc complexe
+    %figure,plot(abs(Sl2(1:50))),title("Sl après filtre")
+    
+    nl =sqrt(sigma2(j))*(randn(size(Sl2)) + 1i*randn (size (Sl2))) ; %bruit blanc complexe
     yl = Sl2 +nl;
         
 %% RECEPTEUR
 
-    Ga = G; %filtre adapté
+    Ga = conv2(G,H); %filtre adapté
     Rg = conv2(G,Ga); %Autocorrélation entre le filtre G et le filtre adapaté Ga
     
+    Rh =conv2(Rg,H);
+    
     retard = 0;
-    max = Rg(1);
-    for i=2:length(Rg)     %calcul du retard lié aux filtres
-        if (Rg(i) > max)
+    max = Rh(1);
+    for i=2:length(Rh)     %calcul du retard lié aux filtres
+        if (Rh(i) > max)
             retard = i;
-            max = Rg(i);
+            max = Rh(i);
         end
     end
     
@@ -112,23 +122,12 @@ Pb = qfunc ( sqrt (2* eb_n0 ) ) ; % Tableau des probabilités d’erreurs théorique
         end
         bit_count = bit_count + 1;
     end
-    TEB= bit_error/bit_count;
+    end
+    TEB(j)= bit_error/bit_count;
+end
 
-%% Affichage des résultats
-Te = 1/fech;
-t = linspace(0,10*Ts-Te, 100);
-
-figure(1);
-plot(t,real(Sl(1:100)),'b');
-
-hold on;
-plot(t,real(rl(1:100)),'r');
-xlabel("temps en s");
-ylabel("partie réelle de s_l(t) et r_l(t)");
-title("s_l(t) en bleu et r_l(t) en rouge");
-
-
-figure(4);
+%%Affichage
+figure();
 semilogy(eb_n0_dB,TEB,'b');
 hold on
 semilogy(eb_n0_dB,Pb,'r');
@@ -136,21 +135,3 @@ xlabel("E_b/N_0 en dB");
 ylabel("log(TEB)");
 title("évolution du TEB en fonction du SNR");
 
-
-% Q2)
-
-freq = linspace(-fech/2,fech/2, Nfft);
-
-DSP_exp = transpose(pwelch(Sl,ones(1,Nfft),0, Nfft));
-
-Tf_sl = fft(Sl,Nfft);
-DSP_th = abs((Tf_sl)).^2;
-
-figure(2);
-semilogy(freq,fftshift(DSP_exp),'b'); %facteur 5000 d'écart
-hold on;
-
-semilogy(freq,fftshift(real(DSP_th)),'r');
-xlabel("fréquence en Hz");
-ylabel("DSP (s_l(t))");
-title("DSP Welch en bleu DSP th en rouge");
