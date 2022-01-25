@@ -91,9 +91,3 @@ for n=1:Ns*n_b/2
 end
 
 nombre_erreur= 0;
-for k=1:length(Sb_final)
-if (Sb(k)~=Sb_final(k))
-nombre_erreur++;   
-end
-end
-taux_erreur=
