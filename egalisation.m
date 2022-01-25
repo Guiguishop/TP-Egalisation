@@ -44,3 +44,39 @@ end
 G=rcosdesign(0.35,8,Fse,'sqrt');    %Filtre de mise en forme en racine de cosinus sur-élevé
 
 Sl=conv(G,Ss_up);         %Sortie du filtre mise en forme cos sur-élevé
+
+%%Récepteur
+Ga=zeros(1,length(G));    %Filtre adapté à un cos sur-élevé
+for k=1:length(G)
+    Ga(k)=G(length(G)+1-k);
+end
+
+Rl=conv(Sl,Ga);           %Sortie du filtre adapté d'un cos sur-élevé
+
+% Rl_down= Rl(length(G)-1 + (1:Fse:1 + (Ns-1)*Fse));            %Sous-échantillonne le signal Rl
+% 
+% Sb_final=zeros(1,Ns*n_b);                           %Association Symboles->bits par méthode du proche voisin
+% c=1;
+% for n=1:Ns*n_b/2
+%     if real(Rl_down(n))>0 && imag(Rl_down(n))>0        %Cas exp(1i*pi/4)
+%         Sb_final(c)=0;
+%         Sb_final(c+1)=0;
+%         c=c+2;
+%     end
+%     if real(Rl_down(n))<0 && imag(Rl_down(n))>0        %Cas exp(1i*3*pi/4)
+%         Sb_final(c)=0;
+%         Sb_final(c+1)=1;
+%         c=c+2;
+%     end
+%     if real(Rl_down(n))<=0 && imag(Rl_down(n))<=0       %Cas exp(1i*5*pi/4)
+%         Sb_final(c)=1;
+%         Sb_final(c+1)=0;
+%         c=c+2;
+%     end
+%     if real(Rl_down(n))>=0 && imag(Rl_down(n))<=0       %Cas exp(1i*7*pi/4)
+%         Sb_final(c)=1;
+%         Sb_final(c)=1;
+%         c=c+2;
+%     end
+% end
+
