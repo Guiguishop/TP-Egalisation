@@ -6,7 +6,7 @@ close all
 dbstop if error
 %% Variable : 
 
-fe= 1e4;
+fe= 4*10^6;;
 M=4;
 n_b=log2(M);
 Ak=zeros(1,4);
@@ -19,7 +19,7 @@ Nb=n_b*Ns;
 Nfft=512;
 Fe = 250;
 Te=1/fe;
-Ts=0.001;
+Ts=4*Te;
 Fse=Ts/Te; 
 bit_generes=randi([0,1],1,Nb);
 Symbole=zeros(1,Ns);
@@ -44,15 +44,13 @@ end
 
 ss=upsample(Symbole,Fse); %on echantillonne à Fse ce qui répresente environ 10 point par symboles.
 
-
-g=rcosdesign(0.25,8,Fse);
+g=rcosdesign(0.35,8,Fse,'sqrt');
 
 sl=conv(ss,g);
 %% canal : 
-
-d =0;
-nmax=25;
-hn= sinc((0:nmax)-12-d);
+d =2;
+nmax=0:25;
+hn= sinc(n-12-d);
 fvtool(hn);
 
 Slavantcanal=conv(hn,sl);
@@ -66,7 +64,7 @@ for t=1:length(ga)-1
 ga(t)=conj(g(length(g)-t));
 end
 
-rl=conv(ga,Slavantcanal);
+rl=conv(ga,sl);
 rln=rl(80:10:50160);
 symbolerecu=zeros(1,5000);
 %rln=downsample(rl,Fse);
@@ -193,6 +191,10 @@ plot(abscisse3,ga);
 %xlim([0.10,0.15]);
 
 ylabel( "ga cosinus sureleve");
+
+
+
+%%h=h.*hann(length(h));
 
 
 

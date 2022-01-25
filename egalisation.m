@@ -1,93 +1,156 @@
-clear;
-close all;
-clc;
+clear ;
+close all ;
+clc ;
 
-%%Paramètres
-fe=4*10^6;                         %%fréquence d'échantillonage
-Te=1/fe;
-M=4;                            %%Nbre de symboles
-n_b=log2(M);                    %%Nbre de bits/symbole
-Ts= 4*Te;                       %%Temps symbole
-Ds=1/Ts;                         %%Débit symbole
-Nfft=512 ;                          %%points pour TF
-Fse=Ts/Te;                          %%Facteur de sur-échantillonage (nombre d'échantillons sur une période Ts)
-Ns=5000;                            %%Nombre de symboles par paquet
+%% Initialisation des paramètres
+fech=4*10^6;
+Te=1/fech;
+Ts=4*Te;
+Fse=Ts/Te;
 
-%%Emetteur
-Sb= randi([0,1],1,Ns*n_b);   %Génération d'une séquence de bits de manière uniforme
-Ss=zeros(1,Ns*n_b/2);        %Création liste stockant les symboles
-k=1;
-for j=1:2:Ns*n_b             % Association bits->symboles (modulation QPSK)
-    if Sb(j)==0 && Sb(j+1)==0
-        Ss(k)=exp(1i*pi/4);
-        k=k+1;
-    end
-    if Sb(j)==0 && Sb(j+1)==1
-        Ss(k)=exp(1i*3*pi/4);
-        k=k+1;
-    end
-    if Sb(j)==1 && Sb(j+1)==0
-        Ss(k)=exp(1i*5*pi/4);
-        k=k+1;
-    end
-    if Sb(j)==1 && Sb(j+1)==1
-        Ss(k)=exp(1i*7*pi/4);
-        k=k+1;
-    end
+M=4;
+n_b=log2(M);
+Ak=[(-1-1j)/sqrt(2); (-1+1j)/sqrt(2); (1-1j)/sqrt(2); (1+1j)/sqrt(2)];
+
+Ns=5000;
+Nc=Ns*Fse;
+Nfft=512;
+
+sigma2 =2;
+
+%Choix du filtre
+G=rcosdesign(0.35,4,Fse,'sqrt');  %filtre de mise en forme
+
+Eg = 0; % Energie du filtre de mise en forme ->somme des modules au carré 
+for i=1:length(G)
+    Eg = Eg + G(i)^2;
 end
 
-Ss_up=zeros(1,Ns*n_b*Fse/2);            %Sur-échantillonne le signal Ss
-for i=1:Ns*n_b/2
-    Ss_up((i-1)*Fse+1)=Ss(i);
-end
+sigA2 = 1; % Variance théorique des symboles -> calcul a partir de la formule avec E(X)²
 
-G=rcosdesign(0.35,8,Fse,'sqrt');    %Filtre de mise en forme en racine de cosinus sur-élevé
+eb_n0_dB = 0:0.5:10; % Liste des Eb/N0 en dB
+eb_n0 = 10.^( eb_n0_dB /10) ; % Liste des Eb/N0
 
-Sl=conv(G,Ss_up);         %Sortie du filtre mise en forme cos sur-élevé
-% partie canal : 
-d =0;
-nmax=25;
-hn= sinc((0:nmax)-12-d);
+sigma2 = sigA2 * Eg ./ ( n_b * eb_n0 ) ; % Variance du bruit complexe en bande de base
 
-fvtool(hn);
-%%Récepteur
-Slavantcanal=conv(hn,Sl);
-var=1;
-bruit= (randn(size(Slavantcanal)))+j*randn(size(Slavantcanal));
-Slavantcanal=Slavantcanal+bruit;
-fvtool(Slavantcanal);
-Ga=zeros(1,length(G));    %Filtre adapté à un cos sur-élevé
-for k=1:length(G)
-    Ga(k)=G(length(G)+1-k);
-end
+TEB = zeros ( size ( eb_n0 ) ); % Tableau des TEB (résultats)
+Pb = qfunc ( sqrt (2* eb_n0 ) ) ; % Tableau des probabilités d’erreurs théoriques = 0.5*erfc(sqrt(eb_n0))
 
-Rl=conv(Slavantcanal,Ga);           %Sortie du filtre adapté d'un cos sur-élevé
 
-Rl_down= Rl(length(G)-1 + (1:Fse:1 + (Ns-1)*Fse));            %Sous-échantillonne le signal Rl
 
-Sb_final=zeros(1,Ns*n_b);                           %Association Symboles->bits par méthode du proche voisin
-c=1;
-for n=1:Ns*n_b/2
-    if real(Rl_down(n))>0 && imag(Rl_down(n))>0        %Cas exp(1i*pi/4)
-        Sb_final(c)=0;
-        Sb_final(c+1)=0;
-        c=c+2;
+%% Emetteur %%
+
+    Sb=randi([0,3],1,Ns); %génère Ns échantillons aléatoires entre 0 et 3 (00,01,10,11)
+    %1 échantillon = 2 bits           
+                      
+    Ss = pskmod(Sb,M,pi/4,'gray'); %bit->symbole
+
+    Ss2=upsample(Ss,Fse); %suréchantillonnage
+    
+    Sl=conv2(G,Ss2); %dix échantillons = Ts en terme de temps   
+%% CANAL
+    d=2;
+    n=0:20;
+    H= sinc(n-12-d).*hann(21);
+    Sl2=conv2(H,Sl);
+    
+    nl =(randn(size(Sl2)) + 1i*randn (size (Sl2))) ; %bruit blanc complexe
+    yl = Sl2 +nl;
+        
+%% RECEPTEUR
+
+    Ga = G; %filtre adapté
+    Rg = conv2(G,Ga); %Autocorrélation entre le filtre G et le filtre adapaté Ga
+    
+    retard = 0;
+    max = Rg(1);
+    for i=2:length(Rg)     %calcul du retard lié aux filtres
+        if (Rg(i) > max)
+            retard = i;
+            max = Rg(i);
+        end
     end
-    if real(Rl_down(n))<0 && imag(Rl_down(n))>0        %Cas exp(1i*3*pi/4)
-        Sb_final(c)=0;
-        Sb_final(c+1)=1;
-        c=c+2;
-    end
-    if real(Rl_down(n))<=0 && imag(Rl_down(n))<=0       %Cas exp(1i*5*pi/4)
-        Sb_final(c)=1;
-        Sb_final(c+1)=0;
-        c=c+2;
-    end
-    if real(Rl_down(n))>=0 && imag(Rl_down(n))<=0       %Cas exp(1i*7*pi/4)
-        Sb_final(c)=1;
-        Sb_final(c)=1;
-        c=c+2;
-    end
-end
+    
+    rl = conv2(Ga, yl);
+    
+    rln = rl(retard:Fse:length(rl)); %sous-echantillonnage
 
-nombre_erreur= 0;
+    %décision 
+
+    bn = pskdemod(rln,4,pi/4,'gray'); % Symbole -> bit
+
+    Sb2 = zeros(1, n_b*length(Sb)); % 0,1,2,3 -> 00,01,10,11 pour évaluer bit à bit
+    for i=1:1:length(Sb)
+        if (Sb(i) == 0)
+            Sb2(2*i-1) = 0; Sb2(2*i) = 0;
+        elseif (Sb(i) == 1)
+            Sb2(2*i-1) = 0; Sb2(2*i) = 1;
+        elseif (Sb(i) == 2)
+            Sb2(2*i-1) = 1; Sb2(2*i) = 0;
+        else
+            Sb2(2*i-1) = 1; Sb2(2*i) = 1;
+        end
+    end
+    
+    bn2 = zeros(1, n_b*length(bn)); % 0,1,2,3 -> 00,01,10,11 pour évaluer bit à bit
+    for i=1:1:length(bn)
+        if (bn(i) == 0)
+            bn2(2*i-1) = 0; bn2(2*i) = 0;
+        elseif (bn(i) == 1)
+            bn2(2*i-1) = 0; bn2(2*i) = 1;
+        elseif (bn(i) == 2)
+            bn2(2*i-1) = 1; bn2(2*i) = 0;
+        else
+            bn2(2*i-1) = 1; bn2(2*i) = 1;
+        end
+    end
+    bit_count =0;
+    bit_error =0;
+    for i =1:Ns*n_b
+        if(Sb2(i) ~= bn2(i))
+            bit_error = bit_error + 1;
+        end
+        bit_count = bit_count + 1;
+    end
+    TEB= bit_error/bit_count;
+%% Affichage des résultats
+Te = 1/fech;
+t = linspace(0,10*Ts-Te, 100);
+
+figure(1);
+plot(t,real(Sl(1:100)),'b');
+
+hold on;
+plot(t,real(rl(1:100)),'r');
+xlabel("temps en s");
+ylabel("partie réelle de s_l(t) et r_l(t)");
+title("s_l(t) en bleu et r_l(t) en rouge");
+
+
+figure(4);
+semilogy(eb_n0_dB,TEB,'b');
+hold on
+semilogy(eb_n0_dB,Pb,'r');
+xlabel("E_b/N_0 en dB");
+ylabel("log(TEB)");
+title("évolution du TEB en fonction du SNR");
+
+
+% Q2)
+
+freq = linspace(-fech/2,fech/2, Nfft);
+
+DSP_exp = transpose(pwelch(Sl,ones(1,Nfft),0, Nfft));
+
+Tf_sl = fft(Sl,Nfft);
+DSP_th = abs((Tf_sl)).^2;
+
+figure(2);
+semilogy(freq,fftshift(DSP_exp),'b'); %facteur 5000 d'écart
+hold on;
+
+semilogy(freq,fftshift(real(DSP_th)),'r');
+xlabel("fréquence en Hz");
+ylabel("DSP (s_l(t))");
+title("DSP Welch en bleu DSP th en rouge");
+
