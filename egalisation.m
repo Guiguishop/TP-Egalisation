@@ -12,6 +12,7 @@ Ds=1/Ts;                         %%Débit symbole
 Nfft=512 ;                          %%points pour TF
 Fse=Ts/Te;                          %%Facteur de sur-échantillonage (nombre d'échantillons sur une période Ts)
 Ns=5000;                            %%Nombre de symboles par paquet
+sigma2 = 3;                         %%Variance du bruit
 
 %%Emetteur
 Sb= randi([0,1],1,Ns*n_b);   %Génération d'une séquence de bits de manière uniforme
@@ -45,6 +46,19 @@ G=rcosdesign(0.35,8,Fse,'sqrt');    %Filtre de mise en forme en racine de cosinu
 
 Sl=conv(G,Ss_up);         %Sortie du filtre mise en forme cos sur-élevé
 
+%%Canal
+d=2;
+n=0:25;
+H = sinc(n-12-d);
+fvtool(H)
+sl_1 = conv(Sl,H);
+
+%Ajout du bruit
+bruit = sqrt(sigma2)*(randn(size(sl_1))+1i*randn(size(sl_1)));
+Yl = sl_1 + bruit;
+
+
+
 %%Récepteur
 Ga=zeros(1,length(G));    %Filtre adapté à un cos sur-élevé
 for k=1:length(G)
@@ -53,30 +67,40 @@ end
 
 Rl=conv(Sl,Ga);           %Sortie du filtre adapté d'un cos sur-élevé
 
-% Rl_down= Rl(length(G)-1 + (1:Fse:1 + (Ns-1)*Fse));            %Sous-échantillonne le signal Rl
-% 
-% Sb_final=zeros(1,Ns*n_b);                           %Association Symboles->bits par méthode du proche voisin
-% c=1;
-% for n=1:Ns*n_b/2
-%     if real(Rl_down(n))>0 && imag(Rl_down(n))>0        %Cas exp(1i*pi/4)
-%         Sb_final(c)=0;
-%         Sb_final(c+1)=0;
-%         c=c+2;
-%     end
-%     if real(Rl_down(n))<0 && imag(Rl_down(n))>0        %Cas exp(1i*3*pi/4)
-%         Sb_final(c)=0;
-%         Sb_final(c+1)=1;
-%         c=c+2;
-%     end
-%     if real(Rl_down(n))<=0 && imag(Rl_down(n))<=0       %Cas exp(1i*5*pi/4)
-%         Sb_final(c)=1;
-%         Sb_final(c+1)=0;
-%         c=c+2;
-%     end
-%     if real(Rl_down(n))>=0 && imag(Rl_down(n))<=0       %Cas exp(1i*7*pi/4)
-%         Sb_final(c)=1;
-%         Sb_final(c)=1;
-%         c=c+2;
-%     end
-% end
+Rl_down= Rl(length(G)-1 + (1:Fse:1 + (Ns-1)*Fse));            %Sous-échantillonne le signal Rl
+
+
+Sb_final=zeros(1,Ns*n_b);                           %Association Symboles->bits par méthode du proche voisin
+c=1;
+for n=1:Ns*n_b/2
+    if real(Rl_down(n))>0 && imag(Rl_down(n))>0        %Cas exp(1i*pi/4)
+        Sb_final(c)=0;
+        Sb_final(c+1)=0;
+        c=c+2;
+    end
+    if real(Rl_down(n))<0 && imag(Rl_down(n))>0        %Cas exp(1i*3*pi/4)
+        Sb_final(c)=0;
+        Sb_final(c+1)=1;
+        c=c+2;
+    end
+    if real(Rl_down(n))<=0 && imag(Rl_down(n))<=0       %Cas exp(1i*5*pi/4)
+        Sb_final(c)=1;
+        Sb_final(c+1)=0;
+        c=c+2;
+    end
+    if real(Rl_down(n))>=0 && imag(Rl_down(n))<=0       %Cas exp(1i*7*pi/4)
+        Sb_final(c)=1;
+        Sb_final(c)=1;
+        c=c+2;
+    end
+end
+
+%%Calcul TEB avec bruit
+erreur_cnt=0;
+for j=1:Ns*n_b
+    if(Sb_final(j)~=Sb(j))
+        erreur_cnt= erreur_cnt+1;
+    end
+end
+TEB_sans_bruit=erreur_cnt/(Ns*n_b);
 
