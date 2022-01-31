@@ -26,9 +26,9 @@ G=rcosdesign(0.35,4,Fse,'sqrt');                % Filtre de mise en forme
 R1 = conv2(G,H);                                %Filtre de mise en forme complet G*H                        
 Ga = conj(flip(R1));                            % Filtre adapté à G*H
 R2 = conv2(R1,Ga);
-[energie,retard] = max(R2);
+[Eg,retard] = max(R2);
 
-sigma2 = sigA2 * energie ./ ( nb * eb_n0 ) ;    % Variance du bruit complexe en bande de base
+sigma2 = sigA2 * Eg ./ ( nb * eb_n0 ) ;         % Variance du bruit complexe en bande de base
 TEB = zeros ( size ( eb_n0 ) );                 % Tableau des TEB (résultats)
 Pb = qfunc ( sqrt (2* eb_n0 ) ) ;               % Tableau des probabilités d’erreurs théoriques = 0.5*erfc(sqrt(eb_n0))
 
@@ -41,7 +41,7 @@ for j = 1: length(eb_n0)
     
     while bit_error < 100
         sb = randi([0,1],1,NbBits);             %Génération du flux binaire
-
+        ss = zeros(1,N);
         for i=1:NbBits/nb
             tmp = sb(1,(i-1)*nb+1:i*nb);
             if tmp == [0 0]
@@ -58,7 +58,7 @@ for j = 1: length(eb_n0)
         ssup=upsample(ss,Fse);                  %Suréchantillonnage
 
         sl = conv2(G,ssup);
-
+        
         %% Canal
         d=-2.5;
         n=0:20;
@@ -77,8 +77,9 @@ for j = 1: length(eb_n0)
         %% Récepteur    
         rl = conv2(Ga, yl);
 
-        ss_detect = rl(retard-1:Fse:length(rl)-Fse); %Sous-echantillonnage
-
+        ss_detect = rl(retard:Fse:length(rl)-Fse); %Sous-echantillonnage
+        ss_est = zeros(1,N);
+        sb_est = zeros(size(sb));
         for i=1:N
             if real(ss_detect(1,i))>0
                 if imag(ss_detect(1,i))>0
