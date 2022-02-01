@@ -78,6 +78,15 @@ for j = 1: length(eb_n0)
         rl = conv2(Ga, yl);
 
         ss_detect = rl(retard:Fse:length(rl)-Fse); %Sous-echantillonnage
+        
+        %Egalisation Zero Forcing
+        ed = zeros(1,length(R2));
+        ed(retard)=1;
+        Wzf = ed'*R2*inv(R2'*R2);
+        %Wzf = ed' * pinv(R2)';
+        
+        ss_detect_zf = conv2(ss_detect,Wzf');
+        
         ss_est = zeros(1,N);
         sb_est = zeros(size(sb));
         for i=1:N
@@ -128,3 +137,12 @@ semilogy(eb_n0_dB,Pb,'r');
 xlabel("E_b/N_0 en dB");
 ylabel("log(TEB)");
 title("evolution du TEB en fonction du SNR");
+
+figure()
+plot(real(ss),imag(ss),'*r')
+hold on
+plot(real(ss_detect_zf),imag(ss_detect_zf),'ob')
+legend('Symboles Tx','Symboles détectés après ZF')
+xlabel('Partie réelle des symboles')
+ylabel('Partie imaginaire des symboles')
+grid on
