@@ -33,15 +33,18 @@ TEB = zeros ( size ( eb_n0 ) );                 % Tableau des TEB (résultats)
 Pb = qfunc ( sqrt (2* eb_n0 ) ) ;               % Tableau des probabilités d’erreurs théoriques = 0.5*erfc(sqrt(eb_n0))
 
 SNR_dB = 20;                                    % Rapport Signal/Bruit au récepteur
-
+sb = randi([0,1],1,NbBits); % génération du flux binaire 
+ss = zeros(1,N);
 %% Emetteur
 for j = 1: length(eb_n0)
     bit_error = 0;
     bit_count = 0;
-    
+    disp("j " + j );
+    compteur=0;
     while bit_error < 100
-        sb = randi([0,1],1,NbBits);             %Génération du flux binaire
-        ss = zeros(1,N);
+                    %Génération du flux binaire
+        disp("j :"+j + "  bit_error : " + bit_error);
+        %disp("compteur " + compteur);
         for i=1:NbBits/nb
             tmp = sb(1,(i-1)*nb+1:i*nb);
             if tmp == [0 0]
@@ -108,14 +111,15 @@ for j = 1: length(eb_n0)
                 end
             end
          end
-        bit_count =0;
-        bit_error =0;
+        %bit_count =0;
+        %bit_error =0;
         for i =1:N*nb
             if(sb(i) ~= sb_est(i))
                 bit_error = bit_error + 1;
             end
-            bit_count = bit_count + 1;
+            
         end
+        bit_count = bit_count + N*nb;
      end
     TEB(j)= bit_error/bit_count;
 end
