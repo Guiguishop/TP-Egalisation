@@ -57,6 +57,7 @@ for j = 1: length(eb_n0)
     d=2;
     n=0:20;
     H= sinc(n-12-d).*hann(21)';
+    H=1;
     %fvtool(H)
     Sl2=conv2(H,Sl);
     
