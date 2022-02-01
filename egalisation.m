@@ -59,6 +59,7 @@ for j = 1: length(eb_n0)
     H= sinc(n-12-d).*hann(21)';
     H=1;
     %fvtool(H)
+    H=1;
     Sl2=conv2(H,Sl);
     
     %figure,plot(abs(Sl2(1:50))),title("Sl apres filtre")
@@ -84,7 +85,7 @@ for j = 1: length(eb_n0)
     
     rl = conv2(Ga, yl);
     
-    rln = rl(retard:Fse:length(rl)); %sous-echantillonnage
+    rln = rl(retard:Fse:length(rl)-Fse); %sous-echantillonnage
 
     %decision 
 
